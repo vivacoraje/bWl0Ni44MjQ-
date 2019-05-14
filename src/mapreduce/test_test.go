@@ -160,12 +160,12 @@ func TestSequentialMany(t *testing.T) {
 }
 
 func TestParallelBasic(t *testing.T) {
-	mr := setup()
-	for i := 0; i < 2; i++ {
+	mr := setup()  // 启动Master
+	for i := 0; i < 2; i++ {  // 启动两个worker
 		go RunWorker(mr.address, port("worker"+strconv.Itoa(i)),
 			MapFunc, ReduceFunc, -1, nil)
 	}
-	mr.Wait()
+	mr.Wait()  // 阻塞，直至所有任务完成，worker调用`Shutdown`
 	check(t, mr.files)
 	checkWorker(t, mr.stats)
 	cleanup(mr)

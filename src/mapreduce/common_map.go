@@ -1,7 +1,10 @@
 package mapreduce
 
 import (
+	"encoding/json"
 	"hash/fnv"
+	"io/ioutil"
+	"os"
 )
 
 func doMap(
@@ -53,6 +56,40 @@ func doMap(
 	//
 	// Your code here (Part I).
 	//
+	data, err := ioutil.ReadFile(inFile)
+	if err != nil {
+		panic(err)
+	}
+	kvs := mapF(inFile, string(data))
+
+	outFiles := make([]*os.File, nReduce)
+	encs := make([]*json.Encoder, nReduce)
+
+	for i := 0; i < nReduce; i++ {
+		filename := reduceName(jobName, mapTask, i)
+		file, err := os.Create(filename)
+		if err != nil {
+			panic(err)
+		}
+		outFiles[i] = file
+
+		enc := json.NewEncoder(file)
+		encs[i] = enc
+	}
+
+	for _, kv := range kvs {
+		index := int(ihash(kv.Key)) % nReduce  // 至少将相同的单词分配到同一个中间文件(reduce)
+		err := encs[index].Encode(&kv)
+		if err != nil {
+		}
+	}
+
+	for _, f := range outFiles {
+		err := f.Close()
+		if err != nil {
+			panic(err)
+		}
+	}
 }
 
 func ihash(s string) int {

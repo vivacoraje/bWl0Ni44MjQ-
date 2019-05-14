@@ -40,7 +40,7 @@ func (mr *Master) Register(args *RegisterArgs, _ *struct{}) error {
 	mr.workers = append(mr.workers, args.Worker)
 
 	// tell forwardRegistrations() that there's a new workers[] entry.
-	mr.newCond.Broadcast()
+	mr.newCond.Broadcast()  // forwardRegistrations() 的for循环解除在else中阻塞
 
 	return nil
 }
@@ -84,6 +84,9 @@ func Sequential(jobName string, files []string, nreduce int,
 // reads ch to learn about workers.
 func (mr *Master) forwardRegistrations(ch chan string) {
 	i := 0
+	// 循环监视已注册worker(`mr.workers`)，
+	// 将所有新的worker地址放入`ch`中，循环在'mr.newCond.Wait()'处阻塞
+	// 当新的worker注册后，阻塞解除
 	for {
 		mr.Lock()
 		if len(mr.workers) > i {
@@ -108,7 +111,7 @@ func Distributed(jobName string, files []string, nreduce int, master string) (mr
 	go mr.run(jobName, files, nreduce,
 		func(phase jobPhase) {
 			ch := make(chan string)
-			go mr.forwardRegistrations(ch)
+			go mr.forwardRegistrations(ch)  // 向`ch`中填充worker地址，在新的worker被注册前阻塞，直至`Master.Register`被调用
 			schedule(mr.jobName, mr.files, mr.nReduce, phase, ch)
 		},
 		func() {

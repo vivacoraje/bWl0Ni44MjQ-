@@ -47,6 +47,7 @@ func (wk *Worker) DoTask(arg *DoTaskArgs, _ *struct{}) error {
 	nc := wk.concurrent
 	wk.Unlock()
 
+	// worker在处理任务期间，不能调用`DoTask`
 	if nc > 1 {
 		// schedule() should never issue more than one RPC at a
 		// time to a given worker.
@@ -80,7 +81,7 @@ func (wk *Worker) DoTask(arg *DoTaskArgs, _ *struct{}) error {
 	}
 
 	wk.Lock()
-	wk.concurrent -= 1
+	wk.concurrent -= 1  // 任务处理完毕，解除调用限制
 	wk.Unlock()
 
 	if wk.parallelism != nil {
@@ -108,7 +109,7 @@ func (wk *Worker) Shutdown(_ *struct{}, res *ShutdownReply) error {
 func (wk *Worker) register(master string) {
 	args := new(RegisterArgs)
 	args.Worker = wk.name
-	ok := call(master, "Master.Register", args, new(struct{}))
+	ok := call(master, "Master.Register", args, new(struct{}))  // 以当前worker地址为参数，调用`Master`的Register方法
 	if ok == false {
 		fmt.Printf("Register: RPC %s register error\n", master)
 	}
@@ -136,9 +137,10 @@ func RunWorker(MasterAddress string, me string,
 		log.Fatal("RunWorker: worker ", me, " error: ", e)
 	}
 	wk.l = l
-	wk.register(MasterAddress)
+	wk.register(MasterAddress)  // 注册worker
 
 	// DON'T MODIFY CODE BELOW
+	// 每建立一个连接，`nRPC`减一，为零时退出循环，关闭socket
 	for {
 		wk.Lock()
 		if wk.nRPC == 0 {
